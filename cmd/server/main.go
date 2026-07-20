@@ -97,7 +97,7 @@ func main() {
 	adminSessionMiddleware := middleware.NewAdminSessionMiddleware(
 		adminSessionRepo, cfg.AdminPasswordHash, cfg.AdminSessionSecret,
 	)
-	kakaoSignatureMiddleware := middleware.NewKakaoSignatureMiddleware(cfg.KakaoSignatureSecret)
+	kakaoSignatureMiddleware := middleware.NewKakaoAuthMiddleware(cfg.KakaoSignatureSecret, cfg.KakaoAPIKey)
 	portalSessionMiddleware := middleware.NewPortalSessionMiddleware(
 		portalSessionRepo, portalUserRepo, cfg.PortalSessionSecret,
 	)

@@ -17,7 +17,17 @@ type Config struct {
 	Port                 int    `env:"PORT" envDefault:"8080"`
 	DatabaseURL          string `env:"DATABASE_URL,required"`
 	RedisURL             string `env:"REDIS_URL,required"`
+	// KakaoSignatureSecret verifies an HMAC of the request body sent in
+	// X-Kakao-Signature.
+	//
+	// Kakao 오픈빌더 cannot produce that: its skill-server header field attaches
+	// a fixed string and nothing computes a per-request HMAC. Setting this for
+	// an 오픈빌더 webhook makes every request fail with 401 Missing signature.
+	// Use KakaoAPIKey instead; this stays for callers that can sign.
 	KakaoSignatureSecret string `env:"KAKAO_SIGNATURE_SECRET"`
+	// KakaoAPIKey is compared against the X-Api-Key header, which is what
+	// 오픈빌더 can actually send.
+	KakaoAPIKey string `env:"KAKAO_API_KEY"`
 	AdminPasswordHash    string `env:"ADMIN_PASSWORD_HASH"`
 	AdminSessionSecret   string `env:"ADMIN_SESSION_SECRET"`
 	PortalSessionSecret  string `env:"PORTAL_SESSION_SECRET"`
@@ -57,8 +67,11 @@ func (c *Config) Validate(isProduction bool) error {
 			return err
 		}
 
-		if c.KakaoSignatureSecret == "" {
-			log.Warn().Msg("KAKAO_SIGNATURE_SECRET is empty in production: webhook signature verification disabled")
+		if c.KakaoSignatureSecret == "" && c.KakaoAPIKey == "" {
+			log.Warn().Msg("KAKAO_API_KEY and KAKAO_SIGNATURE_SECRET are both empty in production: the webhook accepts unauthenticated POSTs. Set KAKAO_API_KEY — 오픈빌더 cannot produce the HMAC that KAKAO_SIGNATURE_SECRET expects")
+		}
+		if c.KakaoSignatureSecret != "" {
+			log.Warn().Msg("KAKAO_SIGNATURE_SECRET is set: every request must carry X-Kakao-Signature with an HMAC of the body. Kakao 오픈빌더 cannot generate that, so an 오픈빌더 webhook will fail with 401 — use KAKAO_API_KEY instead")
 		}
 		if strings.HasPrefix(c.RedisURL, "redis://") {
 			log.Warn().Msg("REDIS_URL uses redis:// (not TLS) in production: consider using rediss://")
