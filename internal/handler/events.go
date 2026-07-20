@@ -113,6 +113,14 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.Error().Err(err).Msg("failed to send event")
 				return
 			}
+			// Live-pushed messages must be marked delivered here as well.
+			// Otherwise they stay `queued` until the next reconnect flush and
+			// the cleanup job marks them `expired` — even though the reply was
+			// already delivered — which makes the message table misreport
+			// failures. sendQueuedMessages does the same for the flush path.
+			if event.Type == "message" {
+				h.markEventDelivered(ctx, event)
+			}
 
 		case <-heartbeat.C:
 			if _, err := fmt.Fprintf(w, ": ping\n\n"); err != nil {
@@ -123,6 +131,26 @@ func (h *EventsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			flusher.Flush()
 		}
+	}
+}
+
+// markEventDelivered marks a live-pushed inbound message as delivered. The
+// message id travels inside the SSE payload (see InboundMessage.ToSSEEventData),
+// so it has to be read back out of the raw event data.
+func (h *EventsHandler) markEventDelivered(ctx context.Context, event sse.Event) {
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(event.Data, &payload); err != nil {
+		log.Warn().Err(err).Msg("failed to decode sse message event for delivery marking")
+		return
+	}
+	if payload.ID == "" {
+		log.Warn().Msg("sse message event has no id; skipping delivery marking")
+		return
+	}
+	if err := h.messageService.MarkDelivered(ctx, payload.ID); err != nil {
+		log.Warn().Err(err).Str("messageId", payload.ID).Msg("failed to mark message as delivered")
 	}
 }
 
