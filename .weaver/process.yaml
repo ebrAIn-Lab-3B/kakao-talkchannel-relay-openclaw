@@ -1,0 +1,27 @@
+# Started from the defaults: this repository has no cards yet to look at, so these are the defaults of Weaver.
+# This file belongs to this repository; change it through a reviewed pull request.
+version: 1
+
+columns:
+  # Where a card's column comes from: the status labels (`labels`), or the Project board's Status (`board-status`).
+  source: labels
+  # Column -> status label, used when the source is `labels`.
+  labels:
+    Backlog: status:backlog
+    Ready: status:ready
+    In progress: status:in-progress
+    Blocked: status:blocked
+    Review: status:review
+    Verified: status:verified
+
+evidence:
+  # A pull request is expected in Review and Verified (`required`), or not (`optional`).
+  pull-request: required
+  # Verified needs a merged pull request that closes the Issue.
+  closing-pull-request: true
+  # An `evidence_exception` in a task file is honored.
+  exceptions: true
+
+stale:
+  # Days without a change before an open card in an active column is idle.
+  idle-days: 14
